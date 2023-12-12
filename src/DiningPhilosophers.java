@@ -1,13 +1,13 @@
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.Random;
+import java.util.concurrent.Semaphore;
 
 public class DiningPhilosophers {
     private static final Random random = new Random();
-    private final Object[] orderLocks = new Object[NUM_PHILOSOPHERS];
     public static final int NUM_PHILOSOPHERS = 5;
     private final Lock[] chopsticks = new ReentrantLock[NUM_PHILOSOPHERS];
-
+    private final Semaphore diningSemaphore = new Semaphore(NUM_PHILOSOPHERS - 1);
 
     private enum Action {
         THINKING("Thinking"),
@@ -32,17 +32,17 @@ public class DiningPhilosophers {
     public DiningPhilosophers() {
         for (int i = 0; i < NUM_PHILOSOPHERS; i++) {
             chopsticks[i] = new ReentrantLock();
-            orderLocks[i] = new Object();
         }
     }
 
      public void dine(int philosopherId) throws InterruptedException {
         Lock leftChopstick = chopsticks[philosopherId];
         Lock rightChopstick = chopsticks[(philosopherId + 1) % NUM_PHILOSOPHERS];
-        Object orderLock = orderLocks[philosopherId];
 
         while (true) {
-            synchronized (orderLock) {
+            // Attempt to acquire dining semaphore
+            diningSemaphore.acquire();
+
                 // Attempt to pick up chopsticks
                 if (leftChopstick.tryLock()) {
                     try {
@@ -62,8 +62,10 @@ public class DiningPhilosophers {
                     leftChopstick.unlock();
                     log(philosopherId, Action.PUT_DOWN_LEFT_CHOPSTICK);
                     }
+
+                    // Release dining semaphore
+                    diningSemaphore.release();
                 }
-            }
 
             think(philosopherId);
         }
